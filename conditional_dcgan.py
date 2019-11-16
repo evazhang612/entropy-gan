@@ -24,9 +24,10 @@ SAMPLE_SIZE = 80
 NUM_LABELS = 8
 
 class Generator(nn.Module):
-    def __init__(self, nz, ngf):
+    def __init__(self, nz, ngf, nc):
         super(Generator, self).__init__()
-        self.ngpu = ngpu
+        # TODO: Fix this with GPU and cuda 
+        self.ngpu = 0 
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
@@ -54,9 +55,10 @@ class Generator(nn.Module):
         return self.main(input)
 
 class Discriminator(nn.Module):
-    def __init__(self, ndf):
+    def __init__(self, ndf, nc):
         super(Discriminator, self).__init__()
-        # self.ngpu = ngpu
+        # TODO: Fix this with GPU and cuda 
+        self.ngpu = 0 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
@@ -149,7 +151,7 @@ class ModelG(nn.Module):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Conditional DCGAN')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=128,
                         help='Batch size (default=128)')
     parser.add_argument('--lr', type=float, default=0.01,
                         help='Learning rate (default=0.01)')
@@ -176,6 +178,9 @@ if __name__ == '__main__':
     parser.add_argument('--kfold', type=int, default=10)
     parser.add_argument('--ithfold', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train', help='train|valid')
+    parser.add_argument('--nc', type=int, default = 3, help = 'nchannels, default rgb = 3')
+    parser.add_argument('--ndf', type = int, default = 64, help = 'size of feature map in discriminator')
+    parser.add_argument('--ngf', type = int, default = 64, help = 'size of feature map in generator')
 
     args = parser.parse_args()
    
@@ -202,8 +207,8 @@ if __name__ == '__main__':
     # train_loader = DataLoader(train_dataset, shuffle=True,
     #     batch_size=args.batch_size)
 
-    model_d = Discriminator()
-    model_g = Generator(args.nz)
+    model_d = Discriminator(args.ndf, args.nc)
+    model_g = Generator(args.nz, args.ngf, args.nc)
     # model_d = ModelD()
     # model_g = ModelG(args.nz)
     criterion = nn.BCELoss()
@@ -256,7 +261,8 @@ if __name__ == '__main__':
             inputv = Variable(input)
             labelv = Variable(label)
 
-            output = model_d(inputv, Variable(one_hot_labels))
+            #  Variable(one_hot_labels)
+            output = model_d(inputv)
             optim_d.zero_grad()
             errD_real = criterion(output, labelv)
             errD_real.backward()
@@ -271,8 +277,10 @@ if __name__ == '__main__':
             noisev = Variable(noise)
             labelv = Variable(label)
             onehotv = Variable(one_hot_labels)
-            g_out = model_g(noisev, onehotv)
-            output = model_d(g_out, onehotv)
+            # onehotv
+            g_out = model_g(noisev)
+            # onehotv
+            output = model_d(g_out)
             errD_fake = criterion(output, labelv)
             fakeD_mean = output.data.cpu().mean()
             errD = errD_real + errD_fake
@@ -289,8 +297,10 @@ if __name__ == '__main__':
             onehotv = Variable(one_hot_labels)
             noisev = Variable(noise)
             labelv = Variable(label)
-            g_out = model_g(noisev, onehotv)
-            output = model_d(g_out, onehotv)
+            #onehotv
+            g_out = model_g(noisev)
+            # onehotv
+            output = model_d(g_out)
             errG = criterion(output, labelv)
             optim_g.zero_grad()
             errG.backward()
