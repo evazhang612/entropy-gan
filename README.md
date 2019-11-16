@@ -12,7 +12,5 @@ Running scripts
 ```python preprocessing/face_alignment.py ```
 
 3. Run DCGAN Baseline 
-TODO (evazhang612): patch batch size issues. 
-
 ``` python conditional_gan.py``` 
-
+TODO (evazhang612): patch batch size issues. 
