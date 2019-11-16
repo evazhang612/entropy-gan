@@ -3,23 +3,6 @@
     All rights reserved.
 """
 
-import os
-import argparse
-import numpy as np
-import torch
-from torch import nn, optim
-
-import torch.nn.functional as F
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-
-import torchvision
-from torchvision.utils import save_image
-from torchvision import datasets, transforms
-from PIL import Image
-
-from data_loader import get_loader
-
 from __future__ import print_function
 #%matplotlib inline
 import argparse
@@ -38,9 +21,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from IPython.display import HTML
+from data_loader import get_loader
 
-
-SAMPLE_SIZE = 80
+# SAMPLE_SIZE = 80
 NUM_LABELS = 8
 
 class Generator(nn.Module):
@@ -205,6 +188,8 @@ if __name__ == '__main__':
                         help='Number of training epochs.')
     parser.add_argument('--nz', type=int, default=100,
                         help='Number of dimensions for input noise.')
+    parser.add_argument('--beta1', type = float, default = 0.5, 
+                        help="Beta1 hyperparam for Adam optimizers.")
     parser.add_argument('--cuda', action='store_true',
                         help='Enable cuda')
     parser.add_argument('--save_every', type=int, default=1,
@@ -257,16 +242,16 @@ if __name__ == '__main__':
 
     # Create batch of latent vectors that we will use to visualize
     #  the progression of the generator
-    fixed_noise = torch.randn(64, nz, 1, 1, device=device)
+    fixed_noise = torch.randn(64, args.nz, 1, 1, device=device)
 
     # Establish convention for real and fake labels during training
     real_label = 1
     fake_label = 0
 
     # Setup Adam optimizers for both G and D
-    optimizerD = optim.Adam(netD.parameters(), lr=lr, betas=(beta1, 0.999))
-    optimizerG = optim.Adam(netG.parameters(), lr=lr, betas=(beta1, 0.999))
-    train_generator(netG, netD, args.num_epochs, train_loader, device)
+    optimizerD = optim.Adam(netD.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    train_generator(netG, netD, args.epochs, train_loader, device)
 
 
 
