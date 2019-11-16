@@ -20,40 +20,110 @@ from PIL import Image
 
 from data_loader import get_loader
 
+SAMPLE_SIZE = 80
+NUM_LABELS = 8
+
+class Generator(nn.Module):
+    def __init__(self, nz, ngf):
+        super(Generator, self).__init__()
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is Z, going into a convolution
+            nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(ngf * 8),
+            nn.ReLU(True),
+            # state size. (ngf*8) x 4 x 4
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 4),
+            nn.ReLU(True),
+            # state size. (ngf*4) x 8 x 8
+            nn.ConvTranspose2d( ngf * 4, ngf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            # state size. (ngf*2) x 16 x 16
+            nn.ConvTranspose2d( ngf * 2, ngf, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True),
+            # state size. (ngf) x 32 x 32
+            nn.ConvTranspose2d( ngf, nc, 4, 2, 1, bias=False),
+            nn.Tanh()
+            # state size. (nc) x 64 x 64
+        )
+
+    def forward(self, input):
+        return self.main(input)
+
+class Discriminator(nn.Module):
+    def __init__(self, ndf):
+        super(Discriminator, self).__init__()
+        # self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is (nc) x 64 x 64
+            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf) x 32 x 32
+            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*2) x 16 x 16
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*4) x 8 x 8
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, input):
+        return self.main(input)
+
 class ModelD(nn.Module):
     def __init__(self):
         super(ModelD, self).__init__()
+         # input is (nc) x 64 x 64
+        #nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
         self.conv1 = nn.Conv2d(1, 32, 5, 1, 2)
+        # Where is the LeakyRU here? 
         self.bn1 = nn.BatchNorm2d(32)
+        # state size. (ndf) x 32 x 32
+        #nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
         self.conv2 = nn.Conv2d(32, 64, 5, 1, 2)
         self.bn2 = nn.BatchNorm2d(64)
         self.fc1  = nn.Linear(64*28*28+1000, 1024)
         self.fc2 = nn.Linear(1024, 1)
-        self.fc3 = nn.Linear(10, 1000)
+        # self.fc3 = nn.Linear(10, 1000
+        self.fc3 = nn.Linear(NUM_LABELS,1000)
 
     def forward(self, x, labels):
         batch_size = x.size(0)
-        x = x.view(batch_size, 1, 28,28)
+        # x = x.view(batch_size, 1, 28,28)
+        x = x.view(batch_size, 1, 8,8)
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
         x = self.conv2(x)
         x = self.bn2(x)
         x = F.relu(x)
-        x = x.view(batch_size, 64*28*28)
+        # x = x.view(batch_size, 64*28*28)
+        x = x.view(batch_size, 64*8*8)
         y_ = self.fc3(labels)
         y_ = F.relu(y_)
         x = torch.cat([x, y_], 1)
         x = self.fc1(x)
         x = F.relu(x)
-        x = self.fc2(x)
+        # x = self.fc2(x)
         return F.sigmoid(x)
 
 class ModelG(nn.Module):
     def __init__(self, z_dim):
         self.z_dim = z_dim
         super(ModelG, self).__init__()
-        self.fc2 = nn.Linear(10, 1000)
+        # self.fc2 = nn.Linear(10, 1000)
+        self.fc2 = nn.Linear(NUM_LABELS, 1000)
         self.fc = nn.Linear(self.z_dim+1000, 64*28*28)
         self.bn1 = nn.BatchNorm2d(64)
         self.deconv1 = nn.ConvTranspose2d(64, 32, 5, 1, 2)
@@ -119,8 +189,6 @@ if __name__ == '__main__':
         print(os.path.isdir(args.emotion_dir + '/S010'))
 
     INPUT_SIZE = args.crop_size
-    SAMPLE_SIZE = 80
-    NUM_LABELS = 8
 
     train_loader, _, _ = get_loader(args)
 
@@ -134,8 +202,10 @@ if __name__ == '__main__':
     # train_loader = DataLoader(train_dataset, shuffle=True,
     #     batch_size=args.batch_size)
 
-    model_d = ModelD()
-    model_g = ModelG(args.nz)
+    model_d = Discriminator()
+    model_g = Generator(args.nz)
+    # model_d = ModelD()
+    # model_g = ModelG(args.nz)
     criterion = nn.BCELoss()
     input = torch.FloatTensor(args.batch_size, INPUT_SIZE)
     noise = torch.FloatTensor(args.batch_size, (args.nz))

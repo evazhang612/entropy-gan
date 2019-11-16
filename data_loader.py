@@ -38,7 +38,7 @@ class Dataset(data.Dataset):
 
         imgs = torch.cat((imgs, img), 0)
         label = torch.LongTensor([label])
-        print(imgs.size())
+        # print(imgs.size())
         return imgs, label
 
     def __len__(self):
@@ -83,7 +83,7 @@ def get_loader(config):
     # if config.dataset_name == 'Dataset':
     #     print('Dataset dataset for train and validation are created...')
     train_dataset = Dataset(train_list, transform, config.mode)
-    print(train_dataset[0])
+    # print(train_dataset[0])
     valid_dataset = Dataset(valid_list, transform_valid, 'valid')
 
     if config.mode == 'train':
