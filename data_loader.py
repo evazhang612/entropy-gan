@@ -31,21 +31,22 @@ class Dataset(data.Dataset):
         degree = np.random.randint(-20, 20)
         seed = np.random.randint(2147483647) # make a seed with numpy generator
 
-        imgs = self._stack_frames(0, degree, img_dirname, filenames, seed)
-        img = self._stack_frames(1, degree, img_dirname, filenames, seed)
+        imgs = self._stack_frames(0, degree, img_dirname, filenames, seed, False)
+        img = self._stack_frames(1, degree, img_dirname, filenames, seed, False)
         imgs = torch.cat((imgs, img), 0)
-        img = self._stack_frames(2, degree, img_dirname, filenames, seed)
+        img = self._stack_frames(2, degree, img_dirname, filenames, seed, False)
 
         imgs = torch.cat((imgs, img), 0)
         label = torch.LongTensor([label])
+        print(imgs.size())
         return imgs, label
 
     def __len__(self):
         return len(self.dataset)
 
-    def _stack_frames(self, nf, degree, img_dirname, filenames, seed):
+    def _stack_frames(self, nf, degree, img_dirname, filenames, seed, rotate = False):
         img = Image.open(os.path.join(img_dirname, filenames[nf])).convert('L')
-        if self.mode == 'train':
+        if self.mode == 'train' and rotate == True:
             img = TF.rotate(img, degree)
         random.seed(seed)
         img = self.transform(img)
@@ -60,11 +61,13 @@ def get_loader(config):
     transform = []
     transform.append(T.RandomHorizontalFlip())
     transform.append(T.Resize(config.image_size))
+    # onfig.image_size
+    # transform.append(T.CenterCrop(config.crop_size))
+    # transform.append
     transform.append(T.RandomCrop(config.crop_size, 4))
     # transform.append(T.ToTensor())
     # transform.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
-    transform = T.Compose([
-        T.ToTensor(), T.Normalize([0.5], [0.5])])
+    transform = T.Compose([T.ToTensor(), T.Normalize([0.5], [0.5])])
     # transform = T.Compose(transform)
 
 
@@ -80,6 +83,7 @@ def get_loader(config):
     # if config.dataset_name == 'Dataset':
     #     print('Dataset dataset for train and validation are created...')
     train_dataset = Dataset(train_list, transform, config.mode)
+    print(train_dataset[0])
     valid_dataset = Dataset(valid_list, transform_valid, 'valid')
 
     if config.mode == 'train':

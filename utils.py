@@ -24,6 +24,7 @@ def search_files(emtn_dir, image_dir, dir_name=None, dataset=None):
         for filename in filenames: #Emotion/S005
             full_filename = os.path.join(dir_name, filename)
             if os.path.isdir(full_filename):
+                print(full_filename)
                 search_files(emtn_dir, image_dir, full_filename, dataset)
             else:
                 ext = os.path.splitext(full_filename)[-1]
@@ -55,11 +56,13 @@ def search_files_oulu(image_dir, dir_name=None, dataset=None):
     try:
         filenames = os.listdir(dir_name) #oulu_align
         for filename in filenames: #ex. P001
+            print(filename)
             full_filename = os.path.join(dir_name, filename) #oulu_align/P001
             if os.path.isdir(full_filename):
                 search_files_oulu(image_dir, full_filename, dataset)
             else:
                 emt = os.path.split(dir_name)[-1]
+                print(emt)
                 label = emotion[emt]
                 dataset.append([label, dir_name]) #ex. cohn-kanade-images/S005/001
                 break

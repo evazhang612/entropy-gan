@@ -79,7 +79,7 @@ class ModelG(nn.Module):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Conditional DCGAN')
-    parser.add_argument('--batch_size', type=int, default=128,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size (default=128)')
     parser.add_argument('--lr', type=float, default=0.01,
                         help='Learning rate (default=0.01)')
@@ -100,8 +100,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--samples_dir', type=str, default='samples',
             help='Path to save the output samples.')
-    parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/downloads/entropy-gan-master/data/Emotion', help='emotion data directory.')
-    parser.add_argument('--image_dir', type=str, default='/Users/evazhang/downloads/entropy-gan-master/data/cohn-kanade-extended', help='image data directory')
+    parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/Emotion', help='emotion data directory.')
+    parser.add_argument('--image_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/cohn-kanade-images', help='image data directory')
     parser.add_argument('--cls', type=int, default=7)
     parser.add_argument('--kfold', type=int, default=10)
     parser.add_argument('--ithfold', type=int, default=0)
@@ -115,9 +115,12 @@ if __name__ == '__main__':
     if not os.path.exists(args.samples_dir):
         os.mkdir(args.samples_dir)
 
-    INPUT_SIZE = 784
+    if os.path.exists(args.emotion_dir):
+        print(os.path.isdir(args.emotion_dir + '/S010'))
+
+    INPUT_SIZE = args.crop_size
     SAMPLE_SIZE = 80
-    NUM_LABELS = 10
+    NUM_LABELS = 8
 
     train_loader, _, _ = get_loader(args)
 
@@ -144,7 +147,8 @@ if __name__ == '__main__':
             fixed_labels[i*(SAMPLE_SIZE // NUM_LABELS) + j, i] = 1.0
     
     label = torch.FloatTensor(args.batch_size)
-    one_hot_labels = torch.FloatTensor(args.batch_size, 10)
+    # instead of hard-coded 10 here.
+    one_hot_labels = torch.FloatTensor(args.batch_size, NUM_LABELS)
     if args.cuda:
         model_d.cuda()
         model_g.cuda()
