@@ -71,9 +71,11 @@ def get_loader(config):
     transform_valid = []
     transform_valid.append(T.Resize(config.image_size))
     transform_valid.append(T.CenterCrop(config.crop_size))
-    transform_valid.append(T.ToTensor())
-    transform_valid.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
-    transform_valid = T.Compose(transform_valid)
+    transform_valid = T.Compose([
+        T.ToTensor(), T.Normalize([0.5], [0.5])])
+    # transform_valid.append(T.ToTensor())
+    # transform_valid.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
+    # transform_valid = T.Compose(transform_valid)
 
     # if config.dataset_name == 'Dataset':
     #     print('Dataset dataset for train and validation are created...')

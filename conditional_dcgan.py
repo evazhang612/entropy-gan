@@ -100,8 +100,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--samples_dir', type=str, default='samples',
             help='Path to save the output samples.')
-    parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/Downloads/Pytorch-conditional-GANs-master/data/Emotion', help='emotion data directory.')
-    parser.add_argument('--image_dir', type=str, default='/Users/evazhang/Downloads/Pytorch-conditional-GANs-master/data/cohn-kanade-extended', help='image data directory')
+    parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/downloads/entropy-gan-master/data/Emotion', help='emotion data directory.')
+    parser.add_argument('--image_dir', type=str, default='/Users/evazhang/downloads/entropy-gan-master/data/cohn-kanade-extended', help='image data directory')
     parser.add_argument('--cls', type=int, default=7)
     parser.add_argument('--kfold', type=int, default=10)
     parser.add_argument('--ithfold', type=int, default=0)
