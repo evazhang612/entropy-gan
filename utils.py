@@ -124,5 +124,5 @@ def get_data_list(emtn_dir, image_dir, num_cls, k, ith_fold):
     for i in range(k):
         if i != ith_fold:
             train_list += k_folds[i]
-    # train_list = oversample(train_list, num_cls)
+    train_list = oversample(train_list, num_cls)
     return train_list, test_list, num_data

@@ -3,7 +3,7 @@
     All rights reserved.
 """
 
-import os 
+import os
 import argparse
 import numpy as np
 import torch
@@ -16,94 +16,71 @@ from torch.utils.data import DataLoader
 import torchvision
 from torchvision.utils import save_image
 from torchvision import datasets, transforms
-from PIL import Image
 
-from data_loader import get_loader
-
-SAMPLE_SIZE = 80
-NUM_LABELS = 7
 
 class ModelD(nn.Module):
     def __init__(self):
         super(ModelD, self).__init__()
-        channels = 3 
-
-        # hardcoded placeholders:
-        self.ndf = 32 # initial number of output filters
-        self.img_dim = 32 # height/width of input images
-        self.num_transformed = NUM_LABELS * 10 # pass labels through fc layer to this many outputs
-
-        # input is (1) x 64 x 64
-        self.conv1 = nn.Conv2d(channels, self.ndf, 4, 2, 1, bias=False)
-        self.bn1 = nn.BatchNorm2d(self.ndf)
-        # state size. (ndf) x 32 x 32
-        self.conv2 = nn.Conv2d(self.ndf, self.ndf*2, 4, 2, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(self.ndf*2)
-        # state size. (ndf*2) x 16 x 16
-
-        # 64*16*16 + 800 -> 1024
-        self.fc1  = nn.Linear((self.ndf*2) * self.img_dim//4 * self.img_dim//4 + 
-                               self.num_transformed, 1024)
+        self.conv1 = nn.Conv2d(3, 32, 5, 1, 2)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, 5, 1, 2)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.fc1  = nn.Linear(64*32*32+1000, 1024)
         self.fc2 = nn.Linear(1024, 1)
-        self.fc3 = nn.Linear(NUM_LABELS, self.num_transformed)
-
+        self.fc3 = nn.Linear(30, 1000) # modified here 
 
     def forward(self, x, labels):
-        channels = 3 
-        batch_size = 128
-        x = x.view(batch_size, channels, self.img_dim, self.img_dim)
-        # input is (1) x 64 x 64
+        batch_size = x.size(0)
+        x = x.view(batch_size, 3, 32,32)
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
-        # (ndf) x 32 x 32
         x = self.conv2(x)
         x = self.bn2(x)
         x = F.relu(x)
-
-        # batch, 64 * 16 * 16
-        x = x.view(batch_size, (self.ndf*2) * self.img_dim//4 * self.img_dim//4 )
+        x = x.view(batch_size, 64*32*32)
+        print("y size" + str(label.size()))
+        labels = labels.view(batch_size, 3*10)
         y_ = self.fc3(labels)
+        print("y size" + str(y_.size()))
+        print("x size" + str(x.size()))
         y_ = F.relu(y_)
+        y_ = y_.view(batch_size, -1)
+        print("y_size" + str(y_.size()))
         x = torch.cat([x, y_], 1)
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
         return F.sigmoid(x)
 
-
 class ModelG(nn.Module):
     def __init__(self, z_dim):
-        # hardcoded placeholders:
-        self.ndf = 32 # initial number of output filters
-        self.img_dim = 32 # height/width of input images
-        self.num_transformed = NUM_LABELS * 10 # pass labels through fc layer to this many outputs
-
-
         self.z_dim = z_dim
         super(ModelG, self).__init__()
-        self.fc2 = nn.Linear(NUM_LABELS, self.num_transformed)
-        # input: z_dim + 800, output: 64 * 64 * 64  [chan * w * h]
-        self.fc = nn.Linear(self.z_dim+self.num_transformed, 
-                            (self.ndf*2) * self.img_dim//4 * self.img_dim//4) 
-        self.bn1 = nn.BatchNorm2d(self.ndf*2)
-        self.deconv1 = nn.ConvTranspose2d((self.ndf*2), self.ndf, 4, 2, 1, bias=False)
-        self.bn2 = nn.BatchNorm2d(self.ndf)
-        self.deconv2 = nn.ConvTranspose2d(self.ndf, 1, 4, 2, 1, bias=False)
+        self.fc2 = nn.Linear(30, 1000) # from 10 here 
+        self.fc = nn.Linear(self.z_dim+1000, 64*32*32)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.deconv1 = nn.ConvTranspose2d(64, 32, 5, 1, 2)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.deconv2 = nn.ConvTranspose2d(32, 3, 5, 1, 2)
 
     def forward(self, x, labels):
         batch_size = x.size(0)
+        print(x.size())
+        labels = labels.view(batch_size, 3*10)
         y_ = self.fc2(labels)
         y_ = F.relu(y_)
+        y_ = y_.view(batch_size, -1)
         x = torch.cat([x, y_], 1)
         x = self.fc(x)
-        x = x.view(batch_size, self.ndf*2, self.img_dim//4, self.img_dim//4)
+        x = x.view(batch_size, 64, 32, 32)
         x = self.bn1(x) 
         x = F.relu(x)
         x = self.deconv1(x)
         x = self.bn2(x)
         x = F.relu(x)
         x = self.deconv2(x)
+        print("x size in g" + str(x.size()))
         x = F.sigmoid(x)
         return x
         
@@ -126,23 +103,8 @@ if __name__ == '__main__':
             help='After how many epochs to print loss and save output samples.')
     parser.add_argument('--save_dir', type=str, default='models',
             help='Path to save the trained models.')
-    parser.add_argument('--image_size',type=int, default=32)
-    parser.add_argument('--crop_size',type=int, default=32)
-    parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--samples_dir', type=str, default='samples',
             help='Path to save the output samples.')
-    # parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/Emotion', help='emotion data directory.')
-    # parser.add_argument('--image_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/data/ck_align', help='image data directory')
-    # parser.add_argument('--emotion_dir', type=str, default='/Users/joycexu/Documents/cs236/entropy-gan/data/Emotion', help='emotion data directory.')
-    # parser.add_argument('--image_dir', type=str, default='/Users/joycexu/Documents/cs236/entropy-gan/data/data/ck_align', help='image data directory')
-    # parser.add_argument('--cls', type=int, default=7)
-    # parser.add_argument('--kfold', type=int, default=10)
-    # parser.add_argument('--ithfold', type=int, default=0)
-    parser.add_argument('--mode', type=str, default='train', help='train|valid')
-    parser.add_argument('--nc', type=int, default = 3, help = 'nchannels, default rgb = 3')
-    parser.add_argument('--ndf', type = int, default = 32, help = 'size of feature map in discriminator')
-    parser.add_argument('--ngf', type = int, default = 32, help = 'size of feature map in generator')
-
     args = parser.parse_args()
    
     if not os.path.exists(args.save_dir):
@@ -151,31 +113,16 @@ if __name__ == '__main__':
     if not os.path.exists(args.samples_dir):
         os.mkdir(args.samples_dir)
 
-    # if os.path.exists(args.emotion_dir):
-    #     print(os.path.isdir(args.emotion_dir + '/S010'))
+    INPUT_SIZE = 1024
+    SAMPLE_SIZE = 80
+    NUM_LABELS = 10
+    train_dataset = datasets.CIFAR10(root='data',
+        train=True,
+        download=True,
+        transform=transforms.ToTensor())
+    train_loader = DataLoader(train_dataset, shuffle=True,
+        batch_size=args.batch_size)
 
-    # EVA ADDED
-    INPUT_SIZE = args.image_size*args.image_size # originally mnist dimensions 
-    SAMPLE_SIZE = 80 # unchanged 
-    NUM_LABELS = 10 # originally 10 
-
-    # EVA ADDED, originally mnist 
-
-    transform = transforms.Compose(
-        [transforms.Resize(args.image_size), # shouldn't be needed here
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
-                                          shuffle=True, num_workers=args.num_workers)
-
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size,
-                                          shuffle=True, num_workers=args.num_workers)
-
-    # train_loader, valid_loader, _ = get_loader(args)
     model_d = ModelD()
     model_g = ModelG(args.nz)
     criterion = nn.BCELoss()
@@ -189,7 +136,6 @@ if __name__ == '__main__':
             fixed_labels[i*(SAMPLE_SIZE // NUM_LABELS) + j, i] = 1.0
     
     label = torch.FloatTensor(args.batch_size)
-    # EVA ADDED instead of hard-coded 10 here.
     one_hot_labels = torch.FloatTensor(args.batch_size, 10)
     if args.cuda:
         model_d.cuda()
@@ -214,55 +160,51 @@ if __name__ == '__main__':
 
         d_loss = 0.0
         g_loss = 0.0
-        for batch_idx, (train_x, train_y) in enumerate(trainloader):
-            # train_x = train_x.reshape((args.batch_size, args.nc, args.image_size, args.image_size))
+        for batch_idx, (train_x, train_y) in enumerate(train_loader):
             batch_size = train_x.size(0)
-            train_x = train_x.view(-1, INPUT_SIZE)
-            train_y = train_y.view(args.batch_size, 1)
+            print("Batch size" + str(batch_size))
+            # train_x = train_x.view(-1, INPUT_SIZE)
+            # print("train_x after reshaping" + str(train_x.size()))
             if args.cuda:
                 train_x = train_x.cuda()
                 train_y = train_y.cuda()
 
-            print("train-x train-y")
-            print(train_x.size())
-            print(train_y.size())
-
-            # if (train_x.size()!= (args.nc*args.batch_size, INPUT_SIZE)):
-            #     print("Train x size not matching other batch sizes")
-            #     continue
-            # TODO @Eva: why is does train_x and train_y have different sample sizes??
-            #            e.g. initially train_x has 384 samples and train_y has 128?
-            # temp workaround for batch #1:
-            # train_x = train_x[:128] 
+            print("train_Y" + str(train_y.size()))
 
             input.resize_as_(train_x).copy_(train_x)
+            print("input resizing" + str(input.size()))
             label.resize_(batch_size).fill_(real_label)
             one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
             one_hot_labels.scatter_(1, train_y.view(batch_size,1), 1)
+            # make it a 
+            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
+            print("one hot labels size" + str(one_hot_labels.size()))
             inputv = Variable(input)
             labelv = Variable(label)
 
-            #  Variable(one_hot_labels)
+            print("label size" + str(labelv.size()))
+
+            print("input vector size" + str(inputv.size()))
             output = model_d(inputv, Variable(one_hot_labels))
             optim_d.zero_grad()
-            # import pdb; pdb.set_trace()
             errD_real = criterion(output, labelv)
             errD_real.backward()
             realD_mean = output.data.cpu().mean()
             
-            one_hot_labels.zero_()
+            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
             #.cuda()
             rand_y = torch.from_numpy(
                 np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
+            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
             noise.resize_(batch_size, args.nz).normal_(0,1)
             label.resize_(batch_size).fill_(fake_label)
             noisev = Variable(noise)
             labelv = Variable(label)
             onehotv = Variable(one_hot_labels)
-            # onehotv
+
+            print("one hot labels size" + str(onehotv.size()))
             g_out = model_g(noisev, onehotv)
-            # onehotv
             output = model_d(g_out, onehotv)
             errD_fake = criterion(output, labelv)
             fakeD_mean = output.data.cpu().mean()
@@ -272,25 +214,24 @@ if __name__ == '__main__':
 
             # train the G
             noise.normal_(0,1)
-            one_hot_labels.zero_()
+            # resized here 
+            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
             #.cuda()
             rand_y = torch.from_numpy(
                 np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
+            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
             label.resize_(batch_size).fill_(real_label)
             onehotv = Variable(one_hot_labels)
             noisev = Variable(noise)
             labelv = Variable(label)
-            #onehotv
             g_out = model_g(noisev, onehotv)
-            # onehotv
             output = model_d(g_out, onehotv)
             errG = criterion(output, labelv)
             optim_g.zero_grad()
             errG.backward()
             optim_g.step()
             
-            # EVA FIXED
             d_loss += errD.data
             g_loss += errG.data
             if batch_idx % args.print_every == 0:
@@ -300,7 +241,7 @@ if __name__ == '__main__':
                         realD_mean))
 
                 g_out = model_g(fixed_noise, fixed_labels).data.view(
-                    SAMPLE_SIZE, 1, args.image_size, args.image_size).cpu()
+                    SAMPLE_SIZE, 1, 32,32).cpu()
                 save_image(g_out,
                     '{}/{}_{}.png'.format(
                         args.samples_dir, epoch_idx, batch_idx))
