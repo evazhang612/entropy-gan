@@ -49,7 +49,8 @@ class ModelD(nn.Module):
 
 
     def forward(self, x, labels):
-        batch_size = x.size(0)
+        # x.size(0)
+        batch_size = 128
 
         x = x.view(batch_size, 1, self.img_dim, self.img_dim)
         # input is (1) x 64 x 64
