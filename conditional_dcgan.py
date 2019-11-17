@@ -21,44 +21,75 @@ from PIL import Image
 from data_loader import get_loader
 
 SAMPLE_SIZE = 80
-NUM_LABELS = 8
+NUM_LABELS = 6
 
 class ModelD(nn.Module):
     def __init__(self):
         super(ModelD, self).__init__()
 
+        # hardcoded placeholders:
+        self.ndf = 32 # initial number of output filters
+        self.img_dim = 64 # height/width of input images
+        self.num_transformed = NUM_LABELS * 10 # pass labels through fc layer to this many outputs
+
+
+        # input is (1) x 64 x 64
+        self.conv1 = nn.Conv2d(1, self.ndf, 4, 2, 1, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.ndf)
+        # state size. (ndf) x 32 x 32
+        self.conv2 = nn.Conv2d(self.ndf, self.ndf*2, 4, 2, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(self.ndf*2)
+        # state size. (ndf*2) x 16 x 16
+
+        # 64*16*16 + 800 -> 1024
+        self.fc1  = nn.Linear((self.ndf*2) * self.img_dim//4 * self.img_dim//4 + 
+                               self.num_transformed, 1024)
+        self.fc2 = nn.Linear(1024, 1)
+        self.fc3 = nn.Linear(NUM_LABELS, self.num_transformed)
+
+
     def forward(self, x, labels):
         batch_size = x.size(0)
-        # x = x.view(batch_size, 1, 28,28)
-        x = x.view(batch_size, 1, 8,8)
+
+        x = x.view(batch_size, 1, self.img_dim, self.img_dim)
+        # input is (1) x 64 x 64
         x = self.conv1(x)
         x = self.bn1(x)
         x = F.relu(x)
+        # (ndf) x 32 x 32
         x = self.conv2(x)
         x = self.bn2(x)
         x = F.relu(x)
-        # x = x.view(batch_size, 64*28*28)
-        x = x.view(batch_size, 64*8*8)
+
+        # batch, 64 * 16 * 16
+        x = x.view(batch_size, (self.ndf*2) * self.img_dim//4 * self.img_dim//4 )
         y_ = self.fc3(labels)
         y_ = F.relu(y_)
         x = torch.cat([x, y_], 1)
         x = self.fc1(x)
         x = F.relu(x)
-        # x = self.fc2(x)
+        x = self.fc2(x)
         return F.sigmoid(x)
+
 
 class ModelG(nn.Module):
     def __init__(self, z_dim):
+        # hardcoded placeholders:
+        self.ndf = 32 # initial number of output filters
+        self.img_dim = 64 # height/width of input images
+        self.num_transformed = NUM_LABELS * 10 # pass labels through fc layer to this many outputs
+
+
         self.z_dim = z_dim
         super(ModelG, self).__init__()
-        # self.fc2 = nn.Linear(10, 1000)
-        # EVa changed, look at original 
-        self.fc2 = nn.Linear(NUM_LABELS, 1000)
-        self.fc = nn.Linear(self.z_dim+1000, 64*28*28)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.deconv1 = nn.ConvTranspose2d(64, 32, 5, 1, 2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.deconv2 = nn.ConvTranspose2d(32, 1, 5, 1, 2)
+        self.fc2 = nn.Linear(NUM_LABELS, self.num_transformed)
+        # input: z_dim + 800, output: 64 * 64 * 64  [chan * w * h]
+        self.fc = nn.Linear(self.z_dim+self.num_transformed, 
+                            (self.ndf*2) * self.img_dim//4 * self.img_dim//4) 
+        self.bn1 = nn.BatchNorm2d(self.ndf*2)
+        self.deconv1 = nn.ConvTranspose2d((self.ndf*2), self.ndf, 4, 2, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(self.ndf)
+        self.deconv2 = nn.ConvTranspose2d(self.ndf, 1, 4, 2, 1, bias=False)
 
     def forward(self, x, labels):
         batch_size = x.size(0)
@@ -66,7 +97,7 @@ class ModelG(nn.Module):
         y_ = F.relu(y_)
         x = torch.cat([x, y_], 1)
         x = self.fc(x)
-        x = x.view(batch_size, 64, 28, 28)
+        x = x.view(batch_size, self.ndf*2, self.img_dim//4, self.img_dim//4)
         x = self.bn1(x) 
         x = F.relu(x)
         x = self.deconv1(x)
@@ -102,6 +133,8 @@ if __name__ == '__main__':
             help='Path to save the output samples.')
     parser.add_argument('--emotion_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/Emotion', help='emotion data directory.')
     parser.add_argument('--image_dir', type=str, default='/Users/evazhang/Downloads/entropy-gan-master/data/data/ck_align', help='image data directory')
+    # parser.add_argument('--emotion_dir', type=str, default='/Users/joycexu/Documents/cs236/entropy-gan/data/Emotion', help='emotion data directory.')
+    # parser.add_argument('--image_dir', type=str, default='/Users/joycexu/Documents/cs236/entropy-gan/data/data/ck_align', help='image data directory')
     parser.add_argument('--cls', type=int, default=7)
     parser.add_argument('--kfold', type=int, default=10)
     parser.add_argument('--ithfold', type=int, default=0)
@@ -118,8 +151,8 @@ if __name__ == '__main__':
     if not os.path.exists(args.samples_dir):
         os.mkdir(args.samples_dir)
 
-    if os.path.exists(args.emotion_dir):
-        print(os.path.isdir(args.emotion_dir + '/S010'))
+    # if os.path.exists(args.emotion_dir):
+    #     print(os.path.isdir(args.emotion_dir + '/S010'))
 
     # EVA ADDED
     INPUT_SIZE = args.image_size*args.image_size # originally mnist dimensions 
@@ -131,7 +164,7 @@ if __name__ == '__main__':
     model_d = ModelD()
     model_g = ModelG(args.nz)
     criterion = nn.BCELoss()
-    input = torch.FloatTensor(args.batch_size, INPUT_SIZE)
+    input = torch.FloatTensor(args.batch_size, args.image_size)
     noise = torch.FloatTensor(args.batch_size, (args.nz))
     
     fixed_noise = torch.FloatTensor(SAMPLE_SIZE, args.nz).normal_(0,1)
@@ -167,6 +200,7 @@ if __name__ == '__main__':
         d_loss = 0.0
         g_loss = 0.0
         for batch_idx, (train_x, train_y) in enumerate(train_loader):
+            # train_x = train_x.reshape((args.batch_size, args.nc, args.image_size, args.image_size))
             batch_size = train_x.size(0)
             train_x = train_x.view(-1, INPUT_SIZE)
             if args.cuda:
@@ -177,6 +211,14 @@ if __name__ == '__main__':
             print(train_x.size())
             print(train_y.size())
 
+            if (train_x.size()!= (args.nc*args.batch_size, INPUT_SIZE)):
+                print("Train x size not matching other batch sizes")
+                continue
+            # TODO @Eva: why is does train_x and train_y have different sample sizes??
+            #            e.g. initially train_x has 384 samples and train_y has 128?
+            # temp workaround for batch #1:
+            train_x = train_x[:128] 
+
             input.resize_as_(train_x).copy_(train_x)
             label.resize_(batch_size).fill_(real_label)
             one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
@@ -185,8 +227,9 @@ if __name__ == '__main__':
             labelv = Variable(label)
 
             #  Variable(one_hot_labels)
-            output = model_d(inputv)
+            output = model_d(inputv, Variable(one_hot_labels))
             optim_d.zero_grad()
+            # import pdb; pdb.set_trace()
             errD_real = criterion(output, labelv)
             errD_real.backward()
             realD_mean = output.data.cpu().mean()
@@ -202,9 +245,9 @@ if __name__ == '__main__':
             labelv = Variable(label)
             onehotv = Variable(one_hot_labels)
             # onehotv
-            g_out = model_g(noisev)
+            g_out = model_g(noisev, onehotv)
             # onehotv
-            output = model_d(g_out)
+            output = model_d(g_out, onehotv)
             errD_fake = criterion(output, labelv)
             fakeD_mean = output.data.cpu().mean()
             errD = errD_real + errD_fake
@@ -223,9 +266,9 @@ if __name__ == '__main__':
             noisev = Variable(noise)
             labelv = Variable(label)
             #onehotv
-            g_out = model_g(noisev)
+            g_out = model_g(noisev, onehotv)
             # onehotv
-            output = model_d(g_out)
+            output = model_d(g_out, onehotv)
             errG = criterion(output, labelv)
             optim_g.zero_grad()
             errG.backward()
@@ -241,7 +284,7 @@ if __name__ == '__main__':
                         realD_mean))
 
                 g_out = model_g(fixed_noise, fixed_labels).data.view(
-                    SAMPLE_SIZE, 1, 28,28).cpu()
+                    SAMPLE_SIZE, 1, args.image_size, args.image_size).cpu()
                 save_image(g_out,
                     '{}/{}_{}.png'.format(
                         args.samples_dir, epoch_idx, batch_idx))

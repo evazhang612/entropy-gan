@@ -28,6 +28,7 @@ class Dataset(data.Dataset):
         filenames = sorted(os.listdir(img_dirname))
         # if len(filenames) < 3:
         #     print(img_dirname)
+        # unused. 
         degree = np.random.randint(-20, 20)
         seed = np.random.randint(2147483647) # make a seed with numpy generator
 
@@ -47,11 +48,12 @@ class Dataset(data.Dataset):
         return len(self.dataset)
 
     def _stack_frames(self, nf, degree, img_dirname, filenames, seed, rotate = False):
-        img = Image.open(os.path.join(img_dirname, filenames[nf])).convert('L')
+        img = Image.open(os.path.join(img_dirname, filenames[nf])).convert('RGB').convert('L')
         if self.mode == 'train' and rotate == True:
             img = TF.rotate(img, degree)
         random.seed(seed)
         # print(img)
+        # img = img.convert('RGB')
         img = self.transform(img)
         return img
 
@@ -99,6 +101,9 @@ def get_loader(config):
     train_dataset = Dataset(train_list, transform, config.mode)
     # print(train_dataset[0])
     valid_dataset = Dataset(valid_list, transform_valid, 'valid')
+
+    print(config.batch_size)
+    print(config.num_workers)
 
     if config.mode == 'train':
         print('The number of train_dataset(before augmentation): {} '.format(len(train_dataset)))
