@@ -134,7 +134,17 @@ if __name__ == '__main__':
     for i in range(NUM_LABELS):
         for j in range(SAMPLE_SIZE // NUM_LABELS):
             fixed_labels[i*(SAMPLE_SIZE // NUM_LABELS) + j, i] = 1.0
-    
+
+    print(fixed_noise.size())
+    print(fixed_labels.size())
+
+    # fixed_noise = torch.stack([fixed_noise, fixed_noise, fixed_noise])
+
+    # fixed_noise = fixed_noise.view(SAMPLE_SIZE, 300) 
+    fixed_labels = torch.stack([fixed_labels, fixed_labels, fixed_labels]).view(SAMPLE_SIZE, 30)
+    print("fixed noise" + str(fixed_noise.size()))
+    print("fixed labels" + str(fixed_labels.size()))
+
     label = torch.FloatTensor(args.batch_size)
     one_hot_labels = torch.FloatTensor(args.batch_size, 10)
     if args.cuda:
@@ -241,7 +251,7 @@ if __name__ == '__main__':
                         realD_mean))
 
                 g_out = model_g(fixed_noise, fixed_labels).data.view(
-                    SAMPLE_SIZE, 1, 32,32).cpu()
+                    SAMPLE_SIZE, 3, 32,32).cpu()
                 save_image(g_out,
                     '{}/{}_{}.png'.format(
                         args.samples_dir, epoch_idx, batch_idx))
