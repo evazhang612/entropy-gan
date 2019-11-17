@@ -26,8 +26,8 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         label, img_dirname = self.dataset[index]
         filenames = sorted(os.listdir(img_dirname))
-        if len(filenames) < 3:
-            print(img_dirname)
+        # if len(filenames) < 3:
+        #     print(img_dirname)
         degree = np.random.randint(-20, 20)
         seed = np.random.randint(2147483647) # make a seed with numpy generator
 
@@ -38,6 +38,8 @@ class Dataset(data.Dataset):
 
         imgs = torch.cat((imgs, img), 0)
         label = torch.LongTensor([label])
+
+        print(imgs.size())
         # print(imgs.size())
         return imgs, label
 
@@ -49,7 +51,9 @@ class Dataset(data.Dataset):
         if self.mode == 'train' and rotate == True:
             img = TF.rotate(img, degree)
         random.seed(seed)
+        # print(img)
         img = self.transform(img)
+        print(img)
         return img
 
 def get_loader(config):
@@ -59,15 +63,16 @@ def get_loader(config):
                                                      config.kfold,
                                                      config.ithfold)
     transform = []
-    transform.append(T.RandomHorizontalFlip())
-    transform.append(T.Resize(config.image_size))
+    # transform.append(T.RandomHorizontalFlip())
+    # transform.append())
     # onfig.image_size
     # transform.append(T.CenterCrop(config.crop_size))
     # transform.append
-    transform.append(T.RandomCrop(config.crop_size, 4))
+    # transform.append(T.RandomCrop(config.crop_size, 4))
     # transform.append(T.ToTensor())
     # transform.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
-    transform = T.Compose([T.ToTensor(), T.Normalize([0.5], [0.5])])
+    transform = T.Compose([T.Resize(config.image_size),
+        T.ToTensor(), T.Normalize([0.5], [0.5])])
     # transform = T.Compose(transform)
 
 

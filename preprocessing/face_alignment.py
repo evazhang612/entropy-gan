@@ -32,8 +32,8 @@ def search_files(data_path, db_name, detector, fa, new_name):
                 if (".png" not in full_filename):
                   # adding skip for garbage files
                   continue 
-                print(image)
-                print(full_filename)
+                # print(image)
+                # print(full_filename)
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
                 # detect faces in the grayscale image

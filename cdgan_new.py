@@ -33,7 +33,7 @@ class Generator(nn.Module):
         self.ngpu = 0 
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
+            nn.ConvTranspose2d( nz, ngf , 4, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
@@ -95,9 +95,23 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def train_generator(netG, netD, num_epochs, dataloader, device):
-    # Training Loop
+def train_generator(netG, netD, num_epochs, dataloader, device, batch_size, nz):
 
+    # Initialize BCELoss function
+    criterion = nn.BCELoss()
+
+    # Create batch of latent vectors that we will use to visualize
+    #  the progression of the generator
+    fixed_noise = torch.randn(64, args.nz, 1, 1, device=device)
+
+    # Establish convention for real and fake labels during training
+    real_label = 1
+    fake_label = 0
+
+    # Setup Adam optimizers for both G and D
+    optimizerD = optim.Adam(netD.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
+    # Training Loop
     # Lists to keep track of progress
     img_list = []
     G_losses = []
@@ -117,10 +131,16 @@ def train_generator(netG, netD, num_epochs, dataloader, device):
             # Format batch
             real_cpu = data[0].to(device)
             b_size = real_cpu.size(0)
-            label = torch.full((b_size,), real_label, device=device)
+            print(real_cpu.size())
+            print("batch size" + str(b_size))
+            label = torch.full((batch_size,), real_label, device=device)
             # Forward pass real batch through D
+            print(label.size())
             output = netD(real_cpu).view(-1)
             # Calculate loss on all-real batch
+            # reshape to batch size 
+            output = output.reshape((batch_size, int(output.size()[0]/batch_size)))
+            print(output.size())
             errD_real = criterion(output, label)
             # Calculate gradients for D in backward pass
             errD_real.backward()
@@ -180,8 +200,8 @@ def train_generator(netG, netD, num_epochs, dataloader, device):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Conditional DCGAN')
-    parser.add_argument('--batch_size', type=int, default=128,
-                        help='Batch size (default=128)')
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help='Batch size (default=64)')
     parser.add_argument('--lr', type=float, default=0.01,
                         help='Learning rate (default=0.01)')
     parser.add_argument('--epochs', type=int, default=10,
@@ -210,8 +230,8 @@ if __name__ == '__main__':
     parser.add_argument('--ithfold', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train', help='train|valid')
     parser.add_argument('--nc', type=int, default = 3, help = 'nchannels, default rgb = 3')
-    parser.add_argument('--ndf', type = int, default = 64, help = 'size of feature map in discriminator')
-    parser.add_argument('--ngf', type = int, default = 64, help = 'size of feature map in generator')
+    parser.add_argument('--ndf', type = int, default = 190, help = 'size of feature map in discriminator')
+    parser.add_argument('--ngf', type = int, default = 190, help = 'size of feature map in generator')
 
     args = parser.parse_args()
    
@@ -236,22 +256,7 @@ if __name__ == '__main__':
     netD.apply(weights_init)
     netG = Generator(args.nz, args.ngf, args.nc)
     netG.apply(weights_init)
-
-    # Initialize BCELoss function
-    criterion = nn.BCELoss()
-
-    # Create batch of latent vectors that we will use to visualize
-    #  the progression of the generator
-    fixed_noise = torch.randn(64, args.nz, 1, 1, device=device)
-
-    # Establish convention for real and fake labels during training
-    real_label = 1
-    fake_label = 0
-
-    # Setup Adam optimizers for both G and D
-    optimizerD = optim.Adam(netD.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-    optimizerG = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
-    train_generator(netG, netD, args.epochs, train_loader, device)
+    train_generator(netG, netD, args.epochs, train_loader, device, args.batch_size, args.nz)
 
 
 
