@@ -3,7 +3,7 @@
     All rights reserved.
 """
 
-import os
+import os 
 import argparse
 import numpy as np
 import torch
@@ -23,82 +23,9 @@ from data_loader import get_loader
 SAMPLE_SIZE = 80
 NUM_LABELS = 8
 
-class Generator(nn.Module):
-    def __init__(self, nz, ngf, nc):
-        super(Generator, self).__init__()
-        # TODO: Fix this with GPU and cuda 
-        self.ngpu = 0 
-        self.main = nn.Sequential(
-            # input is Z, going into a convolution
-            nn.ConvTranspose2d( nz, ngf * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 8),
-            nn.ReLU(True),
-            # state size. (ngf*8) x 4 x 4
-            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 4),
-            nn.ReLU(True),
-            # state size. (ngf*4) x 8 x 8
-            nn.ConvTranspose2d( ngf * 4, ngf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            # state size. (ngf*2) x 16 x 16
-            nn.ConvTranspose2d( ngf * 2, ngf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
-            nn.ReLU(True),
-            # state size. (ngf) x 32 x 32
-            nn.ConvTranspose2d( ngf, nc, 4, 2, 1, bias=False),
-            nn.Tanh()
-            # state size. (nc) x 64 x 64
-        )
-
-    def forward(self, input):
-        return self.main(input)
-
-class Discriminator(nn.Module):
-    def __init__(self, ndf, nc):
-        super(Discriminator, self).__init__()
-        # TODO: Fix this with GPU and cuda 
-        self.ngpu = 0 
-        self.main = nn.Sequential(
-            # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf) x 32 x 32
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*4) x 8 x 8
-            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 8),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, input):
-        return self.main(input)
-
 class ModelD(nn.Module):
     def __init__(self):
         super(ModelD, self).__init__()
-         # input is (nc) x 64 x 64
-        #nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
-        self.conv1 = nn.Conv2d(1, 32, 5, 1, 2)
-        # Where is the LeakyRU here? 
-        self.bn1 = nn.BatchNorm2d(32)
-        # state size. (ndf) x 32 x 32
-        #nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-        self.conv2 = nn.Conv2d(32, 64, 5, 1, 2)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.fc1  = nn.Linear(64*28*28+1000, 1024)
-        self.fc2 = nn.Linear(1024, 1)
-        # self.fc3 = nn.Linear(10, 1000
-        self.fc3 = nn.Linear(NUM_LABELS,1000)
 
     def forward(self, x, labels):
         batch_size = x.size(0)
@@ -125,6 +52,7 @@ class ModelG(nn.Module):
         self.z_dim = z_dim
         super(ModelG, self).__init__()
         # self.fc2 = nn.Linear(10, 1000)
+        # EVa changed, look at original 
         self.fc2 = nn.Linear(NUM_LABELS, 1000)
         self.fc = nn.Linear(self.z_dim+1000, 64*28*28)
         self.bn1 = nn.BatchNorm2d(64)
@@ -193,24 +121,15 @@ if __name__ == '__main__':
     if os.path.exists(args.emotion_dir):
         print(os.path.isdir(args.emotion_dir + '/S010'))
 
-    INPUT_SIZE = args.crop_size
+    # EVA ADDED
+    INPUT_SIZE = args.image_size*args.image_size # originally mnist dimensions 
+    SAMPLE_SIZE = 80 # unchanged 
+    NUM_LABELS = 8 # originally 10 
 
-    train_loader, _, _ = get_loader(args)
-
-    # train_dataset = datasets.MNIST(root='data',
-    #     train=True,
-    #     download=True,
-    #     transform=transforms.ToTensor())
-
-    # train_dataset = datasets.
-    # )
-    # train_loader = DataLoader(train_dataset, shuffle=True,
-    #     batch_size=args.batch_size)
-
-    model_d = Discriminator(args.ndf, args.nc)
-    model_g = Generator(args.nz, args.ngf, args.nc)
-    # model_d = ModelD()
-    # model_g = ModelG(args.nz)
+    # EVA ADDED, originally mnist 
+    train_loader, valid_loader, _ = get_loader(args)
+    model_d = ModelD()
+    model_g = ModelG(args.nz)
     criterion = nn.BCELoss()
     input = torch.FloatTensor(args.batch_size, INPUT_SIZE)
     noise = torch.FloatTensor(args.batch_size, (args.nz))
@@ -222,7 +141,7 @@ if __name__ == '__main__':
             fixed_labels[i*(SAMPLE_SIZE // NUM_LABELS) + j, i] = 1.0
     
     label = torch.FloatTensor(args.batch_size)
-    # instead of hard-coded 10 here.
+    # EVA ADDED instead of hard-coded 10 here.
     one_hot_labels = torch.FloatTensor(args.batch_size, NUM_LABELS)
     if args.cuda:
         model_d.cuda()
@@ -254,6 +173,10 @@ if __name__ == '__main__':
                 train_x = train_x.cuda()
                 train_y = train_y.cuda()
 
+            print("train-x train-y")
+            print(train_x.size())
+            print(train_y.size())
+
             input.resize_as_(train_x).copy_(train_x)
             label.resize_(batch_size).fill_(real_label)
             one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
@@ -269,8 +192,9 @@ if __name__ == '__main__':
             realD_mean = output.data.cpu().mean()
             
             one_hot_labels.zero_()
+            #.cuda()
             rand_y = torch.from_numpy(
-                np.random.randint(0, NUM_LABELS, size=(batch_size,1))).cuda()
+                np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
             noise.resize_(batch_size, args.nz).normal_(0,1)
             label.resize_(batch_size).fill_(fake_label)
@@ -290,8 +214,9 @@ if __name__ == '__main__':
             # train the G
             noise.normal_(0,1)
             one_hot_labels.zero_()
+            #.cuda()
             rand_y = torch.from_numpy(
-                np.random.randint(0, NUM_LABELS, size=(batch_size,1))).cuda()
+                np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
             label.resize_(batch_size).fill_(real_label)
             onehotv = Variable(one_hot_labels)
@@ -306,8 +231,9 @@ if __name__ == '__main__':
             errG.backward()
             optim_g.step()
             
-            d_loss += errD.data[0]
-            g_loss += errG.data[0]
+            # EVA FIXED
+            d_loss += errD.data
+            g_loss += errG.data
             if batch_idx % args.print_every == 0:
                 print(
                 "\t{} ({} / {}) mean D(fake) = {:.4f}, mean D(real) = {:.4f}".

@@ -13,6 +13,7 @@ from torch.autograd import Variable
 # G(z)
 class generator(nn.Module):
     # initializers
+    # batch size = d 
     def __init__(self, d=128):
         super(generator, self).__init__()
         self.deconv1_1 = nn.ConvTranspose2d(100, d*4, 4, 1, 0)
@@ -49,6 +50,7 @@ class generator(nn.Module):
 
 class discriminator(nn.Module):
     # initializers
+    # batch size = d 
     def __init__(self, d=128):
         super(discriminator, self).__init__()
         self.conv1_1 = nn.Conv2d(3, d/2, 4, 2, 1)
