@@ -39,7 +39,7 @@ class Dataset(data.Dataset):
         imgs = torch.cat((imgs, img), 0)
         label = torch.LongTensor([label])
 
-        print(imgs.size())
+        # print(imgs.size())
         # print(imgs.size())
         return imgs, label
 
@@ -53,7 +53,6 @@ class Dataset(data.Dataset):
         random.seed(seed)
         # print(img)
         img = self.transform(img)
-        print(img)
         return img
 
 def get_loader(config):
@@ -63,6 +62,12 @@ def get_loader(config):
                                                      config.kfold,
                                                      config.ithfold)
     transform = []
+
+    transform=T.Compose([T.Resize(config.image_size),
+                            T.CenterCrop(config.image_size),
+                            T.ToTensor(),
+                            T.Normalize([0.5], [0.5]),
+                        ])
     # transform.append(T.RandomHorizontalFlip())
     # transform.append())
     # onfig.image_size
@@ -71,16 +76,20 @@ def get_loader(config):
     # transform.append(T.RandomCrop(config.crop_size, 4))
     # transform.append(T.ToTensor())
     # transform.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
-    transform = T.Compose([T.Resize(config.image_size),
-        T.ToTensor(), T.Normalize([0.5], [0.5])])
+    # transform = T.Compose([T.Resize(config.image_size),
+    #     T.ToTensor(), T.Normalize([0.5], [0.5])])
     # transform = T.Compose(transform)
 
-
-    transform_valid = []
-    transform_valid.append(T.Resize(config.image_size))
-    transform_valid.append(T.CenterCrop(config.crop_size))
-    transform_valid = T.Compose([
-        T.ToTensor(), T.Normalize([0.5], [0.5])])
+    transform_valid=T.Compose([T.Resize(config.image_size),
+                            T.CenterCrop(config.image_size),
+                            T.ToTensor(),
+                            T.Normalize([0.5], [0.5]),
+                        ])
+    # transform_valid = []
+    # transform_valid.append(T.Resize(config.image_size))
+    # transform_valid.append(T.CenterCrop(config.crop_size))
+    # transform_valid = T.Compose([
+    #     T.ToTensor(), T.Normalize([0.5], [0.5])])
     # transform_valid.append(T.ToTensor())
     # transform_valid.append(T.Normalize(mean=(0.5,0.5,0.5), std=(0.5,0.5,0.5)))
     # transform_valid = T.Compose(transform_valid)

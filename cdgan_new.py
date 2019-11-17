@@ -33,7 +33,8 @@ class Generator(nn.Module):
         self.ngpu = 0 
         self.main = nn.Sequential(
             # input is Z, going into a convolution
-            nn.ConvTranspose2d( nz, ngf , 4, 1, 0, bias=False),
+            # nn.ConvTranspose2d( nz, ngf , 4, 1, 0, bias=False),
+            nn.ConvTranspose2d(     nz, ngf * 8, 4, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
@@ -130,17 +131,17 @@ def train_generator(netG, netD, num_epochs, dataloader, device, batch_size, nz):
             netD.zero_grad()
             # Format batch
             real_cpu = data[0].to(device)
-            b_size = real_cpu.size(0)
-            print(real_cpu.size())
-            print("batch size" + str(b_size))
+            batch_size = real_cpu.size(0)
+            # print(real_cpu.size())
+            # print("batch size" + str(b_size))
             label = torch.full((batch_size,), real_label, device=device)
             # Forward pass real batch through D
-            print(label.size())
+            # print(label.size())
             output = netD(real_cpu).view(-1)
             # Calculate loss on all-real batch
             # reshape to batch size 
-            output = output.reshape((batch_size, int(output.size()[0]/batch_size)))
-            print(output.size())
+            # output = output.reshape((batch_size, int(output.size()[0]/batch_size)))
+            # print(output.size())
             errD_real = criterion(output, label)
             # Calculate gradients for D in backward pass
             errD_real.backward()
@@ -148,7 +149,7 @@ def train_generator(netG, netD, num_epochs, dataloader, device, batch_size, nz):
 
             ## Train with all-fake batch
             # Generate batch of latent vectors
-            noise = torch.randn(b_size, nz, 1, 1, device=device)
+            noise = torch.randn(batch_size, nz, 1, 1, device=device)
             # Generate fake image batch with G
             fake = netG(noise)
             label.fill_(fake_label)
@@ -230,8 +231,8 @@ if __name__ == '__main__':
     parser.add_argument('--ithfold', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train', help='train|valid')
     parser.add_argument('--nc', type=int, default = 3, help = 'nchannels, default rgb = 3')
-    parser.add_argument('--ndf', type = int, default = 190, help = 'size of feature map in discriminator')
-    parser.add_argument('--ngf', type = int, default = 190, help = 'size of feature map in generator')
+    parser.add_argument('--ndf', type = int, default = 64, help = 'size of feature map in discriminator')
+    parser.add_argument('--ngf', type = int, default = 64, help = 'size of feature map in generator')
 
     args = parser.parse_args()
    
@@ -245,8 +246,6 @@ if __name__ == '__main__':
         print(os.path.isdir(args.emotion_dir + '/S010'))
 
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
-
-    INPUT_SIZE = args.crop_size
 
     # initialize train loaders for ck+ data 
     train_loader, valid_loader, _ = get_loader(args)
