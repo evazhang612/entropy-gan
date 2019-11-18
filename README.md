@@ -10,6 +10,6 @@ CS 236 Project.
 
 3. Run DCGAN Baseline 
 
-``` python cdgan_new.py```
+``` python mod_cifar_dcgan.py --cuda --epochs=150```
 
 TODO (evazhang612): Add more layers. 
