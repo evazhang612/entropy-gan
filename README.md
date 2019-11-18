@@ -12,4 +12,4 @@ CS 236 Project.
 
 ``` python cdgan_new.py```
 
-TODO (evazhang612): patch batch size issues. 
+TODO (evazhang612): Add more layers. 
