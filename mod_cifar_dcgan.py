@@ -27,7 +27,7 @@ class ModelD(nn.Module):
         self.bn2 = nn.BatchNorm2d(64)
         self.fc1  = nn.Linear(64*32*32+1000, 1024)
         self.fc2 = nn.Linear(1024, 1)
-        self.fc3 = nn.Linear(30, 1000) # modified here 
+        self.fc3 = nn.Linear(10, 1000) # modified here 
 
     def forward(self, x, labels):
         batch_size = x.size(0)
@@ -39,14 +39,10 @@ class ModelD(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
         x = x.view(batch_size, 64*32*32)
-        # print("y size" + str(label.size()))
-        labels = labels.view(batch_size, 3*10)
+        labels = labels.view(batch_size, 10)
         y_ = self.fc3(labels)
-        # print("y size" + str(y_.size()))
-        # print("x size" + str(x.size()))
         y_ = F.relu(y_)
         y_ = y_.view(batch_size, -1)
-        # print("y_size" + str(y_.size()))
         x = torch.cat([x, y_], 1)
         x = self.fc1(x)
         x = F.relu(x)
@@ -57,7 +53,7 @@ class ModelG(nn.Module):
     def __init__(self, z_dim):
         self.z_dim = z_dim
         super(ModelG, self).__init__()
-        self.fc2 = nn.Linear(30, 1000) # from 10 here 
+        self.fc2 = nn.Linear(10, 1000) # from 10 here 
         self.fc = nn.Linear(self.z_dim+1000, 64*32*32)
         self.bn1 = nn.BatchNorm2d(64)
         self.deconv1 = nn.ConvTranspose2d(64, 32, 5, 1, 2)
@@ -66,8 +62,7 @@ class ModelG(nn.Module):
 
     def forward(self, x, labels):
         batch_size = x.size(0)
-        # print(x.size())
-        labels = labels.view(batch_size, 3*10)
+        labels = labels.view(batch_size, 10)
         y_ = self.fc2(labels)
         y_ = F.relu(y_)
         y_ = y_.view(batch_size, -1)
@@ -80,7 +75,6 @@ class ModelG(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
         x = self.deconv2(x)
-        # print("x size in g" + str(x.size()))
         x = F.sigmoid(x)
         return x
         
@@ -135,16 +129,6 @@ if __name__ == '__main__':
         for j in range(SAMPLE_SIZE // NUM_LABELS):
             fixed_labels[i*(SAMPLE_SIZE // NUM_LABELS) + j, i] = 1.0
 
-    # print(fixed_noise.size())
-    # print(fixed_labels.size())
-
-    # fixed_noise = torch.stack([fixed_noise, fixed_noise, fixed_noise])
-
-    # fixed_noise = fixed_noise.view(SAMPLE_SIZE, 300) 
-    fixed_labels = torch.stack([fixed_labels, fixed_labels, fixed_labels]).view(SAMPLE_SIZE, 30)
-    # print("fixed noise" + str(fixed_noise.size()))
-    # print("fixed labels" + str(fixed_labels.size()))
-
     label = torch.FloatTensor(args.batch_size)
     one_hot_labels = torch.FloatTensor(args.batch_size, 10)
     if args.cuda:
@@ -172,29 +156,17 @@ if __name__ == '__main__':
         g_loss = 0.0
         for batch_idx, (train_x, train_y) in enumerate(train_loader):
             batch_size = train_x.size(0)
-            # print("Batch size" + str(batch_size))
-            # train_x = train_x.view(-1, INPUT_SIZE)
-            # print("train_x after reshaping" + str(train_x.size()))
             if args.cuda:
                 train_x = train_x.cuda()
                 train_y = train_y.cuda()
 
-            # print("train_Y" + str(train_y.size()))
-
             input.resize_as_(train_x).copy_(train_x)
-            # print("input resizing" + str(input.size()))
             label.resize_(batch_size).fill_(real_label)
-            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
-            one_hot_labels.scatter_(1, train_y.view(batch_size,1), 1)
-            # make it a 
-            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
-            # print("one hot labels size" + str(one_hot_labels.size()))
+            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_() # 128 10 
+            one_hot_labels.scatter_(1, train_y.view(batch_size,1), 1) 
             inputv = Variable(input)
             labelv = Variable(label)
 
-            # print("label size" + str(labelv.size()))
-
-            # print("input vector size" + str(inputv.size()))
             output = model_d(inputv, Variable(one_hot_labels))
             optim_d.zero_grad()
             errD_real = criterion(output, labelv)
@@ -206,14 +178,12 @@ if __name__ == '__main__':
             rand_y = torch.from_numpy(
                 np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
-            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
             noise.resize_(batch_size, args.nz).normal_(0,1)
             label.resize_(batch_size).fill_(fake_label)
             noisev = Variable(noise)
             labelv = Variable(label)
             onehotv = Variable(one_hot_labels)
 
-            # print("one hot labels size" + str(onehotv.size()))
             g_out = model_g(noisev, onehotv)
             output = model_d(g_out, onehotv)
             errD_fake = criterion(output, labelv)
@@ -230,7 +200,6 @@ if __name__ == '__main__':
             rand_y = torch.from_numpy(
                 np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
-            one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
             label.resize_(batch_size).fill_(real_label)
             onehotv = Variable(one_hot_labels)
             noisev = Variable(noise)
