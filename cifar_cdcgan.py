@@ -184,8 +184,8 @@ if __name__ == '__main__':
             input.resize_as_(train_x).copy_(train_x)
             # print("input resizing" + str(input.size()))
             label.resize_(batch_size).fill_(real_label)
-            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
-            one_hot_labels.scatter_(1, train_y.view(batch_size,1), 1)
+            one_hot_labels.resize_(batch_size, NUM_LABELS).zero_() # 128 10 
+            one_hot_labels.scatter_(1, train_y.view(batch_size,1), 1) 
             # make it a 
             one_hot_labels = torch.stack([one_hot_labels, one_hot_labels, one_hot_labels]).view(batch_size, 3, NUM_LABELS)
             # print("one hot labels size" + str(one_hot_labels.size()))
