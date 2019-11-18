@@ -174,9 +174,9 @@ if __name__ == '__main__':
             realD_mean = output.data.cpu().mean()
             
             one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
-            #.cuda()
+            #
             rand_y = torch.from_numpy(
-                np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
+                np.random.randint(0, NUM_LABELS, size=(batch_size,1))).cuda()
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
             noise.resize_(batch_size, args.nz).normal_(0,1)
             label.resize_(batch_size).fill_(fake_label)
@@ -196,9 +196,9 @@ if __name__ == '__main__':
             noise.normal_(0,1)
             # resized here 
             one_hot_labels.resize_(batch_size, NUM_LABELS).zero_()
-            #.cuda()
+            #
             rand_y = torch.from_numpy(
-                np.random.randint(0, NUM_LABELS, size=(batch_size,1)))
+                np.random.randint(0, NUM_LABELS, size=(batch_size,1))).cuda()
             one_hot_labels.scatter_(1, rand_y.view(batch_size,1), 1)
             label.resize_(batch_size).fill_(real_label)
             onehotv = Variable(one_hot_labels)
